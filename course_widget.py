@@ -15,8 +15,8 @@ class CourseWidget(QWidget):
         self.time_label = QLabel(self.course['time'])
         layout.addWidget(self.time_label)
 
-        self.position_label = QLabel(str(self.course['position']))
-        layout.addWidget(self.position_label)
+        # self.position_label = QLabel(str(self.course['position']))
+        # layout.addWidget(self.position_label)
 
         self.delete_button = QPushButton('删除')
         self.delete_button.clicked.connect(self.deleteCourse)

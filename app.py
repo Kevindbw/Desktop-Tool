@@ -1,6 +1,6 @@
 import json
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QInputDialog, QMessageBox
-from PyQt5.QtCore import QTimer, QTime
+from PyQt5.QtCore import QTimer, QTime, QDate
 from course_widget import CourseWidget  # 导入CourseWidget
 
 class CourseScheduleApp(QWidget):
@@ -17,8 +17,11 @@ class CourseScheduleApp(QWidget):
         # 设置窗口的布局
         self.setLayout(layout)
 
+        # 获取今天的星期数 (1 - 星期一, 7 - 星期日)
+        self.today_weekday = QDate.currentDate().dayOfWeek()
+        print("今天：",self.today_weekday)
         # 从文件中读取课程数据
-        self.courses = self.loadCoursesFromFile()
+        self.courses = self.loadCoursesFromFile(self.today_weekday)
 
         # 创建添加课程按钮
         self.add_button = QPushButton('添加课程')
@@ -33,21 +36,38 @@ class CourseScheduleApp(QWidget):
         self.timer.timeout.connect(self.updateCourseList)
         self.timer.start(1000)
 
-
-    def loadCoursesFromFile(self):
+    def loadCoursesFromFile(self, weekday):
         try:
             with open('courses.json', 'r', encoding='utf-8') as file:
-                courses = json.load(file)
-                for course in courses:
-                    if 'position' not in course:
-                        course['position'] = len(courses) + 1
-                return courses
+                courses_data = json.load(file)
+                return courses_data.get(str(weekday), [])  # 返回指定星期的课程列表
         except FileNotFoundError:
+            return []
+        except json.JSONDecodeError as e:
+            print(f"JSON解码错误: {e}")
             return []
 
     def saveCoursesToFile(self):
-        with open('courses.json', 'w', encoding='utf-8') as file:
-            json.dump(self.courses, file)
+        try:
+            # 加载现有的课程数据
+            with open('courses.json', 'r+', encoding='utf-8') as file:
+                courses_data = json.load(file)
+                # print("课表：",self.courses)
+                # print("文件:",courses_data[str(self.today_weekday)])
+                # 更新课程数据
+                courses_data[str(self.today_weekday)] = self.courses
+                # print("文件(问题):",courses_data)
+                #重新保存整个文件
+                file.seek(0)
+                file.truncate()  # 清除文件中原来的内容
+                json.dump(courses_data, file, ensure_ascii=False, indent=4)
+                # exit(0)
+
+        except FileNotFoundError:
+            # 如果文件不存在，则创建新文件并保存
+            courses_data = {str(self.today_weekday): self.courses}
+            with open('courses.json', 'w', encoding='utf-8') as file:
+                json.dump(courses_data, file, ensure_ascii=False, indent=4)
 
     def refreshCourseWidgets(self):
         for i in reversed(range(self.layout().count())):
@@ -62,7 +82,7 @@ class CourseScheduleApp(QWidget):
     def removeCourse(self, course):
         if course in self.courses:
             self.courses.remove(course)
-            self.saveCoursesToFile()
+            self.saveCoursesToFile()  # 删除课程后保存文件
             self.refreshCourseWidgets()
 
     def addCourse(self):
@@ -89,13 +109,13 @@ class CourseScheduleApp(QWidget):
 
         new_course = {'name': course_name, 'time': course_time, 'position': course_position}
         self.courses.insert(course_position - 1, new_course)
-        self.saveCoursesToFile()
+        self.saveCoursesToFile()  # 添加课程后保存文件
 
         self.refreshCourseWidgets()
 
     def updateCourseList(self):
         current_time = QTime.currentTime()
-        file_courses = self.loadCoursesFromFile()
+        file_courses = self.loadCoursesFromFile(self.today_weekday)
 
         for i, course in enumerate(self.courses):
             course_time = QTime.fromString(course['time'].split('-')[0], 'hh:mm')
