@@ -38,6 +38,128 @@ class CourseWidget(QWidget):
 class CourseScheduleApp(QWidget):
     def __init__(self):
         super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('桌面课表软件')
+        layout = QVBoxLayout()
+
+        self.courses = self.loadCoursesFromFile()
+
+        # 创建课程组件并添加到布局中
+        self.refreshCourseWidgets()
+
+        self.add_button = QPushButton('添加课程')
+        self.add_button.clicked.connect(self.addCourse)
+        layout.addWidget(self.add_button)
+
+        self.setLayout(layout)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.updateCourseList)
+        self.timer.start(1000)
+
+    def loadCoursesFromFile(self):
+        try:
+            with open('courses.json', 'r', encoding='utf-8') as file:
+                courses = json.load(file)
+                for course in courses:
+                    if 'position' not in course:
+                        course['position'] = len(courses) + 1
+                return courses
+        except FileNotFoundError:
+            return []
+
+    def saveCoursesToFile(self):
+        with open('courses.json', 'w', encoding='utf-8') as file:
+            json.dump(self.courses, file)
+
+    def refreshCourseWidgets(self):
+        # 清空现有课程组件
+        for i in reversed(range(self.layout().count())):
+            self.layout().itemAt(i).widget().setParent(None)
+    
+        # 重新添加所有课程组件
+        for course in self.courses:
+            course_widget = CourseWidget(course)
+            self.layout().addWidget(course_widget)
+
+        # 重新添加添加课程按钮
+        self.layout().addWidget(self.add_button)
+
+    def removeCourse(self, course):
+        # 从课程列表中移除指定课程
+        if course in self.courses:
+            self.courses.remove(course)
+            self.saveCoursesToFile()
+
+            # 移除课程组件
+            for i in range(self.layout().count()):
+                course_widget = self.layout().itemAt(i).widget()
+                if isinstance(course_widget, CourseWidget) and course_widget.course == course:
+                    self.layout().removeWidget(course_widget)
+                    course_widget.setParent(None)
+                    break
+            self.refreshCourseWidgets()
+
+    def addCourse(self):
+        course_name, ok = QInputDialog.getText(self, '添加课程', '请输入课程名称:')
+        if not ok:
+            return
+
+        course_time, ok = QInputDialog.getText(self, '添加课程', '请输入课程时间:')
+        if not ok:
+            return
+
+        course_position, ok = QInputDialog.getText(self, '添加课程', '请输入课程位置:')
+        if not ok:
+            return
+
+        if not course_position.isdigit():
+            QMessageBox.warning(self, '错误', '课程位置必须是数字')
+            return
+
+        course_position = int(course_position)
+        if course_position < 1 or course_position > len(self.courses) + 1:
+            QMessageBox.warning(self, '错误', '课程位置无效')
+            return
+
+        # 在指定位置插入新的课程
+        new_course = {'name': course_name, 'time': course_time, 'position': course_position}
+        self.courses.insert(course_position - 1, new_course)
+        self.saveCoursesToFile()
+
+        # 刷新课程组件
+        self.refreshCourseWidgets()
+
+    def updateCourseList(self):
+        current_time = QTime.currentTime()
+
+        file_courses = self.loadCoursesFromFile()
+
+        for i, course in enumerate(self.courses):
+            course_time = QTime.fromString(course['time'].split('-')[0], 'hh:mm')
+            course_widget = self.layout().itemAt(i).widget()
+
+            if course_widget is None or not isinstance(course_widget, CourseWidget):
+                course_widget = CourseWidget(course)
+                self.layout().insertWidget(i, course_widget)
+
+            if course_time <= current_time < course_time.addSecs(60 * 90):
+                course_widget.name_label.setStyleSheet('background-color: yellow;')
+            else:
+                course_widget.name_label.setStyleSheet('')
+
+            if course not in file_courses:
+                self.courses.remove(course)
+                self.saveCoursesToFile()
+                self.layout().removeWidget(course_widget)
+                course_widget.setParent(None)
+                print(f"课程 {course} 已被移除。")
+
+
+    def __init__(self):
+        super().__init__()
 
         self.initUI()
 
