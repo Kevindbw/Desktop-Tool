@@ -9,3 +9,5 @@ if __name__ == '__main__':
     ex = CourseScheduleApp()
     ex.show()
     sys.exit(app.exec_())
+#build pyinstaller --noconfirm --clean --windowed --name "Course" --noupx --onefile --add-data "course_widget.py;." --add-data "app.py;." main.py
+#   
